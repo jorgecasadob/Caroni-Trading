@@ -19,8 +19,13 @@ def home():
 @routes.route('/scan-stocks', methods=['POST'])
 def scan_stocks():
     try:
-        # Parse user-provided criteria from the request body
+        # Parse and validate user-provided criteria
         data = request.json
+        print("Request Data:", data)  # Log the incoming request data
+        if not data:
+            return jsonify({"error": "Request body is required"}), 400
+
+        # Extract filtering criteria
         criteria = StockCriteria(
             improving_revenue_years=data.get('improving_revenue_years', 5),
             institutional_ownership=data.get('institutional_ownership', 50.0),
@@ -31,60 +36,87 @@ def scan_stocks():
             buy_rating=data.get('buy_rating', True),
         )
 
-        # Fetch S&P 500 stock data (mocked or via an API)
+        # Fetch S&P 500 stock data
         sp500_stocks = get_sp500_stocks()
+        print(f"Fetched {len(sp500_stocks)} stocks.")  # Log the number of stocks fetched
 
-        # Apply filtering logic
-        matching_stocks = []
-        for stock in sp500_stocks:
+        # Filter stocks based on criteria
+        matching_stocks = filter_stocks(sp500_stocks, criteria)
+
+        # Return filtered results
+        if not matching_stocks:
+            return jsonify({"message": "No stocks matched the criteria"}), 200
+        return jsonify([stock.__dict__ for stock in matching_stocks]), 200
+
+    except Exception as e:
+        print("Error in /scan-stocks:", str(e))  # Log the error
+        return jsonify({"error": str(e)}), 500
+
+
+# Helper function to fetch S&P 500 stock data using yfinance
+def get_sp500_stocks():
+    tickers = ["AAPL", "MSFT", "GOOGL"]
+    stocks = []
+
+    for ticker in tickers:
+        try:
+            print(f"Fetching data for {ticker}")  # Log the ticker being processed
+            stock = yf.Ticker(ticker)
+            info = stock.info
+            historical_data = stock.history(period="6mo")['Close'].tolist()
+
+            fetched_stock = Stock(
+                ticker=ticker,
+                company_name=info.get("shortName", "Unknown"),
+                market_cap=info.get("marketCap", 0),
+                pe_ratio=info.get("trailingPE", 0),
+                net_income=info.get("netIncomeToCommon", 0),
+                revenue=info.get("totalRevenue", 0),
+                institutional_ownership=info.get("heldPercentInstitutions", 0) * 100,
+                current_price=info.get("currentPrice", 0),
+                historical_prices=historical_data,
+                buy_rating=True  # Placeholder; replace with real data if available
+            )
+            print("Fetched Stock:", fetched_stock.__dict__)  # Log the fetched stock
+            stocks.append(fetched_stock)
+        except Exception as e:
+            print(f"Error fetching data for {ticker}: {e}")  # Log specific ticker errors
+    return stocks
+
+
+# Helper function to filter stocks based on user-provided criteria
+def filter_stocks(stocks, criteria):
+    matching_stocks = []
+    for stock in stocks:
+        try:
+            print(f"Evaluating Stock: {stock.ticker}")  # Log stock details
+            correction = calculate_price_correction(stock.historical_prices)  # Calculate correction
+            print(f"Price Correction for {stock.ticker}: {correction}%")  # Log correction
+
+            # Apply criteria filters
             if (
                 stock.institutional_ownership >= criteria.institutional_ownership
                 and stock.pe_ratio >= criteria.pe_rating
-                and stock.net_income >= 0
-                and stock.market_cap > 1e10 if criteria.high_market_cap else True
-                and calculate_price_correction(stock.historical_prices) >= criteria.price_correction
+                and stock.net_income > 0
+                and (stock.market_cap > 1e10 if criteria.high_market_cap else True)
+                and correction >= criteria.price_correction  # Check correction threshold
                 and stock.buy_rating == criteria.buy_rating
             ):
+                print(f"Stock {stock.ticker} matches criteria")  # Log matched stock
                 matching_stocks.append(stock)
+            else:
+                print(f"Stock {stock.ticker} does NOT match criteria")  # Log non-matched stock
+        except Exception as e:
+            print(f"Error filtering stock {stock.ticker}: {e}")  # Log filtering errors
+    print(f"Matching Stocks: {len(matching_stocks)}")  # Log the number of matches
+    return matching_stocks
 
-        # Return filtered results
-        return jsonify([stock.__dict__ for stock in matching_stocks])
-
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-
-# Helper function to mock or fetch S&P 500 stocks
-def get_sp500_stocks():
-    return [
-        Stock(
-            ticker="AAPL",
-            company_name="Apple Inc.",
-            market_cap=2.5e12,
-            pe_ratio=28.5,
-            net_income=100e9,
-            revenue=300e9,
-            institutional_ownership=65.0,
-            current_price=150,
-            historical_prices=[180, 170, 160, 155, 150],
-            buy_rating=True,
-        ),
-        Stock(
-            ticker="MSFT",
-            company_name="Microsoft Corp.",
-            market_cap=2.2e12,
-            pe_ratio=35.2,
-            net_income=90e9,
-            revenue=250e9,
-            institutional_ownership=70.0,
-            current_price=280,
-            historical_prices=[310, 290, 285, 280, 270],
-            buy_rating=True,
-        ),
-    ]
 
 # Helper function to calculate price correction
 def calculate_price_correction(historical_prices):
     if len(historical_prices) < 2:
-        return 0
-    return ((max(historical_prices) - historical_prices[-1]) / max(historical_prices)) * 100
+        return 0  # Not enough data to calculate correction
+    correction = ((max(historical_prices) - historical_prices[-1]) / max(historical_prices)) * 100
+    return correction
+
 
