@@ -20,9 +20,10 @@
   "homepage": "https://github.com/jorgecasadob/Caroni-Trading#readme",
   "dependencies": {
     "bootstrap": "^5.3.3",
-    "react": "^19.0.0",
-    "react-dom": "^19.0.0",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
     "react-router-dom": "^7.1.1",
-    "react-scripts": "^5.0.1"
+    "react-scripts": "^3.0.1",
+    "web-vitals": "^4.2.4"
   }
 }

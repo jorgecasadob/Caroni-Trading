@@ -1,25 +1,27 @@
-import logo from './logo.svg';
-import './App.css';
+import React from 'react';
+import { createBrowserRouter, RouterProvider } from 'react-router-dom';
+import Navbar from './components/Navbar';
 
-function App() {
-  return (
-    <div className="App">
-      <header className="App-header">
-        <img src={logo} className="App-logo" alt="logo" />
-        <p>
-          Edit <code>src/App.js</code> and save to reload.
-        </p>
-        <a
-          className="App-link"
-          href="https://reactjs.org"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Learn React
-        </a>
-      </header>
-    </div>
-  );
-}
+// Pages
+const Home = () => <div className="container mt-5"><h1>Welcome to Caroni Trading</h1></div>;
+const StockScanner = () => <div className="container mt-5"><h1>Stock Scanner</h1></div>;
+
+const router = createBrowserRouter([
+  {
+    path: '/',
+    element: <Home />,
+  },
+  {
+    path: '/scanner',
+    element: <StockScanner />,
+  },
+]);
+
+const App = () => (
+  <>
+    <Navbar />
+    <RouterProvider router={router} />
+  </>
+);
 
 export default App;
