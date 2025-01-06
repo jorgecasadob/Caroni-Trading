@@ -62,25 +62,24 @@ def get_sp500_stocks():
         try:
             print(f"Fetching data for {ticker}")  # Log the ticker being processed
             stock = yf.Ticker(ticker)
-            info = stock.info
+            info = stock.fast_info
             historical_data = stock.history(period="6mo")['Close'].tolist()
 
             fetched_stock = Stock(
                 ticker=ticker,
                 company_name=info.get("shortName", "Unknown"),
-                market_cap=info.get("marketCap", 0),
-                pe_ratio=info.get("trailingPE", 0),
-                net_income=info.get("netIncomeToCommon", 0),
-                revenue=info.get("totalRevenue", 0),
-                institutional_ownership=info.get("heldPercentInstitutions", 0) * 100,
-                current_price=info.get("currentPrice", 0),
+                market_cap=info.get("market_cap", 0),
+                pe_ratio=info.get("trailing_pe", 0),
+                net_income=info.get("net_income_to_common", 0),
+                revenue=info.get("total_revenue", 0),
+                institutional_ownership=info.get("held_percent_institutions", 0) * 100,
+                current_price=info.get("current_price", 0),
                 historical_prices=historical_data,
-                buy_rating=True  # Placeholder; replace with real data if available
+                buy_rating=True
             )
-            print("Fetched Stock:", fetched_stock.__dict__)  # Log the fetched stock
             stocks.append(fetched_stock)
         except Exception as e:
-            print(f"Error fetching data for {ticker}: {e}")  # Log specific ticker errors
+            print(f"Error fetching data for {ticker}: {e}")
     return stocks
 
 
@@ -93,30 +92,33 @@ def filter_stocks(stocks, criteria):
             correction = calculate_price_correction(stock.historical_prices)  # Calculate correction
             print(f"Price Correction for {stock.ticker}: {correction}%")  # Log correction
 
-            # Apply criteria filters
+            # Debug each criterion
+            print(f"Checking Institutional Ownership: {stock.institutional_ownership} >= {criteria.institutional_ownership}")
+            print(f"Checking P/E Ratio: {stock.pe_ratio} >= {criteria.pe_rating}")
+            print(f"Checking Market Cap: {stock.market_cap > 1e10 if criteria.high_market_cap else True}")
+            print(f"Checking Price Correction: {correction >= criteria.price_correction}")
+            print(f"Checking Buy Rating: {stock.buy_rating == criteria.buy_rating}")
+
             if (
                 stock.institutional_ownership >= criteria.institutional_ownership
                 and stock.pe_ratio >= criteria.pe_rating
                 and stock.net_income > 0
                 and (stock.market_cap > 1e10 if criteria.high_market_cap else True)
-                and correction >= criteria.price_correction  # Check correction threshold
+                and correction >= criteria.price_correction
                 and stock.buy_rating == criteria.buy_rating
             ):
                 print(f"Stock {stock.ticker} matches criteria")  # Log matched stock
                 matching_stocks.append(stock)
             else:
-                print(f"Stock {stock.ticker} does NOT match criteria")  # Log non-matched stock
+                print(f"Stock {stock.ticker} does NOT match criteria")
         except Exception as e:
-            print(f"Error filtering stock {stock.ticker}: {e}")  # Log filtering errors
+            print(f"Error filtering stock {stock.ticker}: {e}")
     print(f"Matching Stocks: {len(matching_stocks)}")  # Log the number of matches
     return matching_stocks
-
 
 # Helper function to calculate price correction
 def calculate_price_correction(historical_prices):
     if len(historical_prices) < 2:
-        return 0  # Not enough data to calculate correction
+        return 0
     correction = ((max(historical_prices) - historical_prices[-1]) / max(historical_prices)) * 100
     return correction
-
-
